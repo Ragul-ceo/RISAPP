@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 import './Dashboard.css';
 
@@ -85,7 +85,10 @@ function Dashboard() {
           <h1>HR Dashboard</h1>
           <p>Employee Attendance Management</p>
         </div>
-        <button className="logout-btn" onClick={handleLogout}>Logout</button>
+        <div className="header-buttons">
+          <Link to="/users" className="manage-users-btn">👥 Manage Users</Link>
+          <button className="logout-btn" onClick={handleLogout}>Logout</button>
+        </div>
       </div>
 
       {message && (

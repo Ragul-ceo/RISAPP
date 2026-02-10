@@ -27,6 +27,29 @@
   opacity: 0.9;
 }
 
+.header-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.manage-users-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid white;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.manage-users-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
 .logout-btn {
   background: rgba(255, 255, 255, 0.2);
   border: 2px solid white;

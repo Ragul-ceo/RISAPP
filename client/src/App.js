@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './components/Login';
 import CheckIn from './components/CheckIn';
 import Dashboard from './components/Dashboard';
+import UserManagement from './components/UserManagement';
 import PrivateRoute from './components/PrivateRoute';
 import './App.css';
 
@@ -24,6 +25,14 @@ function App() {
           element={
             <PrivateRoute requiredRole="hr">
               <Dashboard />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <PrivateRoute requiredRole="hr">
+              <UserManagement />
             </PrivateRoute>
           }
         />
