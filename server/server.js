@@ -4,6 +4,9 @@ const mysql = require('mysql2/promise');
 const path = require('path');
 require('dotenv').config();
 
+console.log('⏳ Starting server...');
+console.log('📁 Using database:', process.env.DB_NAME);
+
 const app = express();
 
 // Middleware
@@ -23,6 +26,8 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0
 });
+
+console.log('✅ Database pool created');
 
 // Make pool available to routes
 app.use((req, res, next) => {
