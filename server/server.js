@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -8,6 +9,9 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from React build
+app.use(express.static(path.join(__dirname, '../client/build')));
 
 // MySQL Pool
 const pool = mysql.createPool({
@@ -35,6 +39,13 @@ app.use('/api/admin', require('./routes/users'));
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'Server is running' });
+});
+
+// Serve React app for all non-API routes
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, '../client/build/index.html'));
+  }
 });
 
 // Error handling
