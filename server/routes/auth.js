@@ -12,18 +12,16 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password required' });
     }
 
-    const connection = await req.pool.getConnection();
-    const [users] = await connection.execute(
-      'SELECT id, name, email, password, role FROM users WHERE email = ?',
+    const result = await req.pool.query(
+      'SELECT id, name, email, password, role FROM users WHERE email = $1',
       [email]
     );
-    connection.release();
 
-    if (users.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const user = users[0];
+    const user = result.rows[0];
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
@@ -59,28 +57,23 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Name, email, and password required' });
     }
 
-    const connection = await req.pool.getConnection();
-    
     // Check if user exists
-    const [existingUsers] = await connection.execute(
-      'SELECT id FROM users WHERE email = ?',
+    const existingResult = await req.pool.query(
+      'SELECT id FROM users WHERE email = $1',
       [email]
     );
 
-    if (existingUsers.length > 0) {
-      connection.release();
+    if (existingResult.rows.length > 0) {
       return res.status(400).json({ error: 'User already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const userRole = role || 'employee';
 
-    await connection.execute(
-      'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
+    await req.pool.query(
+      'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)',
       [name, email, hashedPassword, userRole]
     );
-
-    connection.release();
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (error) {

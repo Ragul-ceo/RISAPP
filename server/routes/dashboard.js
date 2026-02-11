@@ -11,37 +11,36 @@ router.get('/attendance', verifyToken, async (req, res) => {
     }
 
     const { startDate, endDate } = req.query;
-    const connection = await req.pool.getConnection();
 
     let query = `
       SELECT 
         u.id, u.name, u.email,
         a.check_in_time, a.check_out_time,
-        a.check_in_latitude, a.check_in_longitude,
-        a.check_out_latitude, a.check_out_longitude
+        a.check_in_lat, a.check_in_long,
+        a.check_out_lat, a.check_out_long
       FROM attendance a
       JOIN users u ON a.user_id = u.id
       WHERE u.role = 'employee'
     `;
 
     const params = [];
+    let paramIndex = 1;
 
     if (startDate) {
-      query += ' AND DATE(a.check_in_time) >= ?';
+      query += ` AND DATE(a.check_in_time) >= $${paramIndex}`;
       params.push(startDate);
+      paramIndex++;
     }
 
     if (endDate) {
-      query += ' AND DATE(a.check_in_time) <= ?';
+      query += ` AND DATE(a.check_in_time) <= $${paramIndex}`;
       params.push(endDate);
     }
 
     query += ' ORDER BY a.check_in_time DESC';
 
-    const [records] = await connection.execute(query, params);
-    connection.release();
-
-    res.json(records);
+    const result = await req.pool.query(query, params);
+    res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -54,35 +53,32 @@ router.get('/summary', verifyToken, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const connection = await req.pool.getConnection();
-
     const today = new Date().toISOString().split('T')[0];
 
     // Total employees
-    const [totalEmployees] = await connection.execute(
-      'SELECT COUNT(*) as count FROM users WHERE role = "employee"'
+    const totalResult = await req.pool.query(
+      'SELECT COUNT(*) as count FROM users WHERE role = $1',
+      ['employee']
     );
 
     // Employees checked in today
-    const [checkedInToday] = await connection.execute(
+    const checkedInResult = await req.pool.query(
       `SELECT COUNT(DISTINCT user_id) as count FROM attendance 
-       WHERE DATE(check_in_time) = ?`,
+       WHERE DATE(check_in_time) = $1`,
       [today]
     );
 
     // Employees checked out today
-    const [checkedOutToday] = await connection.execute(
+    const checkedOutResult = await req.pool.query(
       `SELECT COUNT(*) as count FROM attendance 
-       WHERE DATE(check_in_time) = ? AND check_out_time IS NOT NULL`,
+       WHERE DATE(check_in_time) = $1 AND check_out_time IS NOT NULL`,
       [today]
     );
 
-    connection.release();
-
     res.json({
-      totalEmployees: totalEmployees[0].count,
-      checkedInToday: checkedInToday[0].count,
-      checkedOutToday: checkedOutToday[0].count
+      totalEmployees: parseInt(totalResult.rows[0].count),
+      checkedInToday: parseInt(checkedInResult.rows[0].count),
+      checkedOutToday: parseInt(checkedOutResult.rows[0].count)
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -97,35 +93,36 @@ router.post('/export', verifyToken, async (req, res) => {
     }
 
     const { startDate, endDate } = req.body;
-    const connection = await req.pool.getConnection();
 
     let query = `
       SELECT 
         u.name, u.email,
         a.check_in_time, a.check_out_time,
-        a.check_in_latitude, a.check_in_longitude,
-        a.check_out_latitude, a.check_out_longitude
+        a.check_in_lat, a.check_in_long,
+        a.check_out_lat, a.check_out_long
       FROM attendance a
       JOIN users u ON a.user_id = u.id
       WHERE u.role = 'employee'
     `;
 
     const params = [];
+    let paramIndex = 1;
 
     if (startDate) {
-      query += ' AND DATE(a.check_in_time) >= ?';
+      query += ` AND DATE(a.check_in_time) >= $${paramIndex}`;
       params.push(startDate);
+      paramIndex++;
     }
 
     if (endDate) {
-      query += ' AND DATE(a.check_in_time) <= ?';
+      query += ` AND DATE(a.check_in_time) <= $${paramIndex}`;
       params.push(endDate);
     }
 
     query += ' ORDER BY a.check_in_time DESC';
 
-    const [records] = await connection.execute(query, params);
-    connection.release();
+    const result = await req.pool.query(query, params);
+    const records = result.rows;
 
     // Create workbook
     const workbook = new ExcelJS.Workbook();
@@ -137,10 +134,10 @@ router.post('/export', verifyToken, async (req, res) => {
       { header: 'Email', key: 'email', width: 25 },
       { header: 'Check-in Time', key: 'check_in_time', width: 20 },
       { header: 'Check-out Time', key: 'check_out_time', width: 20 },
-      { header: 'Check-in Lat', key: 'check_in_latitude', width: 15 },
-      { header: 'Check-in Long', key: 'check_in_longitude', width: 15 },
-      { header: 'Check-out Lat', key: 'check_out_latitude', width: 15 },
-      { header: 'Check-out Long', key: 'check_out_longitude', width: 15 }
+      { header: 'Check-in Lat', key: 'check_in_lat', width: 15 },
+      { header: 'Check-in Long', key: 'check_in_long', width: 15 },
+      { header: 'Check-out Lat', key: 'check_out_lat', width: 15 },
+      { header: 'Check-out Long', key: 'check_out_long', width: 15 }
     ];
 
     // Add data
@@ -150,10 +147,10 @@ router.post('/export', verifyToken, async (req, res) => {
         email: record.email,
         check_in_time: record.check_in_time,
         check_out_time: record.check_out_time || 'Not checked out',
-        check_in_latitude: record.check_in_latitude,
-        check_in_longitude: record.check_in_longitude,
-        check_out_latitude: record.check_out_latitude || '-',
-        check_out_longitude: record.check_out_longitude || '-'
+        check_in_lat: record.check_in_lat,
+        check_in_long: record.check_in_long,
+        check_out_lat: record.check_out_lat || '-',
+        check_out_long: record.check_out_long || '-'
       });
     });
 

@@ -10,13 +10,11 @@ router.get('/users', verifyToken, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const connection = await req.pool.getConnection();
-    const [users] = await connection.execute(
+    const result = await req.pool.query(
       'SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC'
     );
-    connection.release();
 
-    res.json(users);
+    res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -35,28 +33,23 @@ router.post('/users', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Name, email, and password required' });
     }
 
-    const connection = await req.pool.getConnection();
-
     // Check if user exists
-    const [existing] = await connection.execute(
-      'SELECT id FROM users WHERE email = ?',
+    const existingResult = await req.pool.query(
+      'SELECT id FROM users WHERE email = $1',
       [email]
     );
 
-    if (existing.length > 0) {
-      connection.release();
+    if (existingResult.rows.length > 0) {
       return res.status(400).json({ error: 'User already exists with this email' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const userRole = role || 'employee';
 
-    await connection.execute(
-      'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
+    await req.pool.query(
+      'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)',
       [name, email, hashedPassword, userRole]
     );
-
-    connection.release();
 
     res.status(201).json({ message: 'User created successfully' });
   } catch (error) {
@@ -78,35 +71,30 @@ router.put('/users/:id', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Name and email required' });
     }
 
-    const connection = await req.pool.getConnection();
-
     // Check if email is used by another user
-    const [existing] = await connection.execute(
-      'SELECT id FROM users WHERE email = ? AND id != ?',
+    const existingResult = await req.pool.query(
+      'SELECT id FROM users WHERE email = $1 AND id != $2',
       [email, id]
     );
 
-    if (existing.length > 0) {
-      connection.release();
+    if (existingResult.rows.length > 0) {
       return res.status(400).json({ error: 'Email already in use' });
     }
 
     if (password) {
       // Update with new password
       const hashedPassword = await bcrypt.hash(password, 10);
-      await connection.execute(
-        'UPDATE users SET name = ?, email = ?, password = ?, role = ? WHERE id = ?',
+      await req.pool.query(
+        'UPDATE users SET name = $1, email = $2, password = $3, role = $4 WHERE id = $5',
         [name, email, hashedPassword, role || 'employee', id]
       );
     } else {
       // Update without changing password
-      await connection.execute(
-        'UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?',
+      await req.pool.query(
+        'UPDATE users SET name = $1, email = $2, role = $3 WHERE id = $4',
         [name, email, role || 'employee', id]
       );
     }
-
-    connection.release();
 
     res.json({ message: 'User updated successfully' });
   } catch (error) {
@@ -128,9 +116,7 @@ router.delete('/users/:id', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
 
-    const connection = await req.pool.getConnection();
-    await connection.execute('DELETE FROM users WHERE id = ?', [id]);
-    connection.release();
+    await req.pool.query('DELETE FROM users WHERE id = $1', [id]);
 
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
